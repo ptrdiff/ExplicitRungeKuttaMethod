@@ -50,7 +50,7 @@ namespace ExplicitRungeKuttaMethod
             for (int k = 5; k <= 10; ++k)
             {
                 var x = Math.Pow(2.0, -k);
-                var y = (ERKMethod.RealFunction(5) - ERKMethod.MyMethod(x)).L2Norm();
+                var y = (ERKMethod.RealFunction(5) - ERKMethod.Method(x)).L2Norm();
                 mySeriesOfPoint.Points.AddXY(y, x);
             }
             myChart.Series.Add(mySeriesOfPoint);
@@ -81,7 +81,7 @@ namespace ExplicitRungeKuttaMethod
             for (int i = 1; i <= 5; ++i)
             {
                 double h = ERKMethod.RungeRuleGlobal(0.00001, b: i);
-                var y = (ERKMethod.RealFunction(i) - ERKMethod.MyMethod(h, b: i)).L2Norm();
+                var y = (ERKMethod.RealFunction(i) - ERKMethod.Method(h, b: i)).L2Norm();
                 mySeriesOfPoint.Points.AddXY(i, y);
             }
             myChart.Series.Add(mySeriesOfPoint);
@@ -94,7 +94,8 @@ namespace ExplicitRungeKuttaMethod
         static void Main(string[] args)
         {
             Console.WriteLine(ERKMethod.RealFunction(5));
-            Console.WriteLine(ERKMethod.MyMethod(ERKMethod.RungeRuleGlobal(0.00001)));
+            Console.WriteLine(ERKMethod.Method(ERKMethod.RungeRuleGlobal(0.00001)));
+            Console.WriteLine(ERKMethod.Method(ERKMethod.RungeRuleGlobal(0.00001),MyMethod:false));
             ChartForm window = new ChartForm();
             window.ShowDialog();
         }
@@ -105,6 +106,11 @@ namespace ExplicitRungeKuttaMethod
         private static double A = 3.0;
         private static double B = 1.5;
         private static double C = -1.0;
+
+        private static double c2 = 0.70;
+        private static double a21 = c2;
+        private static double b2 = 1.0 / (2.0 * c2);
+        private static double b1 = 1.0 - 1.0 / (2.0 * c2);
 
         private static double x0 = 0;
         private static Vector<double> y0 = Vector<double>.Build.DenseOfArray(new double[] { 1.0, 1.0, A, 1.0 });
@@ -135,41 +141,22 @@ namespace ExplicitRungeKuttaMethod
             });
         }
 
-        public static Vector<double> MyMethod(double h, double a = aCon, double b = bCon)
+        public static Vector<double> Method(double h, double a = aCon, double b = bCon, bool MyMethod = true)
         {
-            double c2 = 0.70;
-            double a21 = c2;
-            double b2 = 1.0 / (2.0 * c2);
-            double b1 = 1.0 - 1.0 / (2.0 * c2);
-
+            Vector<double> method(double tmpX, Vector<double> tmpY) => MyMethod 
+                ? tmpY + h * (b1 * Function(tmpX, tmpY) + b2 * Function(tmpX + c2 * h, tmpY + h * a21 * Function(tmpX, tmpY))) 
+                : tmpY + h * Function(tmpX + h / 2.0, tmpY + (h / 2.0) * Function(tmpX, tmpY));
             Vector<double> y = y0.Clone();
             int n = (int)Math.Ceiling((b - a) / h);
 
-            double tmpX = x0;
-            Vector<double> tmpY = y0.Clone();
+            double X = x0;
+            Vector<double> Y = y0.Clone();
 
             for (int i = 1; i <= n; ++i)
             {
-                y = tmpY + h * (b1 * Function(tmpX, tmpY) + b2 * Function(tmpX + c2 * h, tmpY + h * a21 * Function(tmpX, tmpY)));
-                tmpX = tmpX + h;
-                tmpY = y;
-            }
-            return y;
-        }
-
-        public static Vector<double> HisMethod(double h, double a = aCon, double b = bCon)
-        {
-            Vector<double> y = Vector<double>.Build.Dense(y0.Count);
-            int n = (int)Math.Ceiling((b - a) / h);
-
-            double tmpX = x0;
-            Vector<double> tmpY = y0.Clone();
-
-            for (int i = 1; i <= n; ++i)
-            {
-                y = tmpY + h * Function(tmpX + h / 2.0, tmpY + (h / 2.0) * Function(tmpX, tmpY));
-                tmpX = tmpX + h;
-                tmpY = y;
+                y = method(X, Y);
+                X = X + h;
+                Y = y;
             }
             return y;
         }
@@ -178,8 +165,8 @@ namespace ExplicitRungeKuttaMethod
         {
 
             double h = Math.Pow(tol, 1.0 / 2.0);
-            Vector<double> yn = MyMethod(h, a, b);
-            Vector<double> y2n = MyMethod(h / 2.0, a, b);
+            Vector<double> yn = Method(h, a, b);
+            Vector<double> y2n = Method(h / 2.0, a, b);
 
             Vector<double> R2n = (y2n - yn) / (Math.Pow(2, 2) - 1.0);
 
